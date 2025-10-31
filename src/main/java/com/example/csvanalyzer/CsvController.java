@@ -19,9 +19,14 @@ public class CsvController {
     private CsvAnalysisRepository repository;
 
     @PostMapping("/upload")
-    public ResponseEntity<CsvStatistics> uploadCsv(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> uploadCsv(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body("Файл пустой");
+        }
+
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.toLowerCase().endsWith(".csv")) {
+            return ResponseEntity.badRequest().body("Разрешены только CSV файлы");
         }
 
         try {
@@ -29,7 +34,7 @@ public class CsvController {
             return ResponseEntity.ok(stats);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.status(500).body("Ошибка при анализе CSV файла");
         }
     }
 
@@ -43,5 +48,14 @@ public class CsvController {
         return repository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/history/{id}")
+    public ResponseEntity<Void> deleteAnalysis(@PathVariable Long id) {
+        if (!repository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+        repository.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }

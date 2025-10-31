@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -31,6 +32,8 @@ public class CsvService {
         double min = Double.MAX_VALUE;
         double max = Double.MIN_VALUE;
 
+        List<String> invalidLinesDetails = new ArrayList<>();
+
         Path tempFile = Files.createTempFile("csv_", ".tmp");
         Files.copy(file.getInputStream(), tempFile, StandardCopyOption.REPLACE_EXISTING);
 
@@ -40,11 +43,14 @@ public class CsvService {
             String header = reader.readLine();
 
             String line;
+            int lineNumber = 1;
             while ((line = reader.readLine()) != null) {
+                lineNumber++;
                 totalLines++;
                 String[] parts = line.split(",");
                 if (parts.length != 2) {
                     invalidLines++;
+                    invalidLinesDetails.add("Строка " + lineNumber + ": неверное количество столбцов");
                     continue;
                 }
 
@@ -57,14 +63,16 @@ public class CsvService {
                     uniqueValues.add(value);
                 } catch (NumberFormatException e) {
                     invalidLines++;
+                    invalidLinesDetails.add("Строка " + lineNumber + ": не число (" + parts[1] + ")");
                 }
             }
         }
 
-        double mean = sum / (totalLines - invalidLines);
-        double stdDev = Math.sqrt(sumSquares / (totalLines - invalidLines) - mean * mean);
+        double mean = totalLines - invalidLines > 0 ? sum / (totalLines - invalidLines) : 0;
+        double stdDev = totalLines - invalidLines > 0 ? Math.sqrt(sumSquares / (totalLines - invalidLines) - mean * mean) : 0;
 
         CsvStatistics stats = new CsvStatistics(totalLines, invalidLines, min, max, mean, stdDev, uniqueValues.size());
+        stats.setInvalidLinesDetails(invalidLinesDetails);
 
         CsvAnalysis analysis = new CsvAnalysis(
                 file.getOriginalFilename(),
